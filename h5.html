@@ -1,0 +1,133 @@
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<title>
+			<%= htmlWebpackPlugin.options.title %>
+		</title>
+		<!-- Open Graph data -->
+		<!-- <meta property="og:title" content="Title Here" /> -->
+		<!-- <meta property="og:url" content="http://www.example.com/" /> -->
+		<!-- <meta property="og:image" content="http://example.com/image.jpg" /> -->
+		<!-- <meta property="og:description" content="Description Here" /> -->
+		<script>
+			var coverSupport = 'CSS' in window && typeof CSS.supports === 'function' && (CSS.supports('top: env(a)') || CSS.supports('top: constant(a)'))
+			document.write('<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0' + (coverSupport ? ', viewport-fit=cover' : '') + '" />')
+		</script>
+		<link rel="stylesheet" href="<%= BASE_URL %>static/index.<%= VUE_APP_INDEX_CSS_HASH %>.css" />
+	</head>
+	<body>
+		<!-- 注册页面 -->
+		<template>
+			<view class="bottom-side-otherLogin" @click="getWeChatCode" v-if="isWeixin">
+				<text>其他社交账号登录</text>
+				<image src="https://xuezhifu-resource.oss-cn-hangzhou.aliyuncs.com/newxuefu/mwx/wx.png"></image>
+			</view>
+		</template>
+		<script>
+			export default {
+				data() {
+					return {
+						isWeixin: false,
+					};
+				},
+				onLoad() {
+					this.isWeixin = this.isWechat()
+					if(this.isWeixin){
+						this.checkWeChatCode()//通过微信官方接口获取code之后，会重新刷新设置的回调地址【redirect_uri】
+					}
+				},
+				onShow() {
+				},
+				mounted() {
+		 
+				},
+				methods: {
+					/*微信登录相关  start*/
+					//方法：用来判断是否是微信内置的浏览器
+					isWechat() {
+					        return String(navigator.userAgent.toLowerCase().match(/MicroMessenger/i)) === "micromessenger";
+					},
+					//方法:用来提取code
+					getUrlCode(name) {
+						return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(location.href) || [, ''])[1]
+							.replace(/\+/g, '%20')) || null
+					},
+					//检查浏览器地址栏中微信接口返回的code
+					checkWeChatCode() {
+						let code = this.getUrlCode('code')
+						uni.showToast({
+							title:`微信code=${code}`
+						})
+						if (code) {
+							
+							this.getOpenidAndUserinfo(code)
+						}
+					},
+					//请求微信接口，用来获取code
+					getWeChatCode() {
+						let local = encodeURIComponent(window.location.href); //获取当前页面地址作为回调地址
+						let appid = '自己的appid'
+						
+						//通过微信官方接口获取code之后，会重新刷新设置的回调地址【redirect_uri】
+						window.location.href =
+							"https://open.weixin.qq.com/connect/oauth2/authorize?appid=" +
+							appid + 
+							"&redirect_uri=" +
+							local +
+							"&response_type=code&scope=snsapi_userinfo&state=1#wechat_redirect";
+					},
+					//把code传递给后台接口，静默登录
+					getOpenidAndUserinfo(code) {
+						this.$http({
+							url:'api/login',
+							data:{
+								code:code
+							}
+						}).then((res) => {
+							console.log(res)
+							if (res.code != 0) {
+								uni.showToast({
+									title: res.msg,
+									duration: 3000,
+									icon: 'none'
+								});
+								return
+							}else{
+								this.afterLogin(res)
+							}
+						})
+					},
+					/*微信登录相关  end*/
+					afterLogin(res){
+						let user = res.data.user
+						uni.setStorageSync('token', res.data.token);
+						let u = {
+							avatar: user.avatar ? user.avatar : this.avatar,
+							mobile: user.mobile,
+							nickname: user.nickname ? user.nickname : '土肥圆'
+						}
+						uni.setStorage({
+							key: 'u',
+							data: u,
+							success: () => {
+								
+								let url = uni.getStorageSync('redirect')
+								uni.reLaunch({
+									url: url ? url : '/pages/index'
+								})
+							}
+						});
+					},
+				},
+		 
+			}
+		</script>
+		 
+		<noscript>
+			<strong>Please enable JavaScript to continue.</strong>
+		</noscript>
+		<div id="app"></div>
+		<!-- built files will be auto injected -->
+	</body>
+</html>
